@@ -1,0 +1,154 @@
+ SQL Examples for optimizing gridview
+ 
+ public DataTable CarDataSet(string EngineKeyDisabled, string pagedGridview, int startIndex, int pageSize, string sortColumns, string activeBuyers, string filterCarFeatures, string filterModel, string tbFulfilledBy,
+                                      string AutoCustomers, string CustomerReferences, string tbExpiredAfterDate, string tbExpiredBeforeDate, string tbIssuedBeforeDate,
+                                      string tbIssuedAfterDate, string tbMaintEndBeforeDate, string tbMaintEndAfterDate)
+      {
+          string tbEngineKeyDisabled = "";
+          string _sortColumns;
+
+          if (sortColumns.Length > 0)
+          {
+              _sortColumns = sortColumns;
+          }
+          else
+          {
+              _sortColumns = "OrderStartDate";
+          }
+          if(EngineKeyDisabled == "1")
+          {
+              tbEngineKeyDisabled = "0";
+          }
+          if (activeBuyers=="1")
+          {
+              tbExpiredAfterDate = DateTime.Now.ToString();
+              tbEngineKeyDisabled = "0";
+             // string EngineKeyDisabled
+          }
+
+          string ExpiredBeforeDate = tbExpiredBeforeDate ?? DateTime.MaxValue.ToString();
+          string IssuedBeforeDate = tbIssuedBeforeDate ?? DateTime.MaxValue.ToString();
+          string MaintEndBeforeDate = tbMaintEndBeforeDate ?? DateTime.MaxValue.ToString();
+
+          DataTable dataTable = new DataTable();
+
+          // Specify the provider name, server and database.
+          string providerName = "System.Data.SqlClient";
+          string serverName = ".";
+          string databaseName = "car_website";
+
+          // Initialize the connection string builder for the
+          // underlying provider.
+          SqlConnectionStringBuilder sqlBuilder =
+              new SqlConnectionStringBuilder();
+
+          // Set the properties for the data source.
+          sqlBuilder.DataSource = serverName;
+          sqlBuilder.InitialCatalog = databaseName;
+          sqlBuilder.IntegratedSecurity = true;
+
+          // Build the SqlConnection connection string.
+          string providerString = sqlBuilder.ToString();
+
+          // Initialize the EntityConnectionStringBuilder.
+          EntityConnectionStringBuilder entityBuilder =
+              new EntityConnectionStringBuilder();
+
+          //Set the provider name.
+          entityBuilder.Provider = providerName;
+
+          // Set the provider-specific connection string.
+          entityBuilder.ProviderConnectionString = providerString;
+
+          string query = @"
+
+          DECLARE @pagedGridView int, @ExpiredAfterDate Date, @ExpiredBeforeDate Date, @IssuedAfterDate Date,
+          @IssuedBeforeDate Date, @MaintEndAfterDate Date, @MaintEndBeforeDate Date
+
+          SET @pagedGridView = '" + pagedGridView + @"'
+          SET @ExpiredAfterDate = '" + tbExpiredAfterDate + @"'
+          SET @ExpiredBeforeDate = '" + ExpiredBeforeDate + @"'
+          SET @IssuedAfterDate = '" + tbIssuedAfterDate + @"'
+          SET @IssuedBeforeDate = '" + IssuedBeforeDate + @"'
+          SET @MaintEndAfterDate = '" + tbMaintEndAfterDate + @"'
+          SET @MaintEndBeforeDate =  '" + MaintEndBeforeDate + @"'
+
+          IF @pagedGridView = '1'
+          (
+                  SELECT * FROM
+                  (
+                      SELECT ROW_NUMBER() OVER(ORDER BY " + _sortColumns + @") AS ResultRank, *
+
+                      FROM [customerCodesDB]
+
+                      WHERE(
+                              (PermanentAutoCustomer NOT LIKE 1)
+                              AND (FeatureString LIKE '%" + filterCarFeatures + @"%')
+                              AND (KeyExpirationDate > @ExpiredAfterDate OR KeyExpirationDate is Null)
+                              AND (KeyExpirationDate < @ExpiredBeforeDate OR KeyExpirationDate is Null)
+                              AND (ApplicationDescription LIKE '%" + filterApp + @"%')
+                              AND (FulfilledBy LIKE '%" + tbFulfilledBy + @"%')
+                              AND (OrderStartDate > @IssuedAfterDate OR OrderStartDate is Null)
+                              AND (OrderStartDate < @IssuedBeforeDate)
+                              AND (AccountType LIKE '%" + ddAccountType + @"%' OR AccountType is Null)
+                              AND (EngineKeyDisabled LIKE '%" + tbEngineKeyDisabled + @"%')
+                          )
+                      OR(
+                              (PermanentAutoCustomer LIKE 1)
+                              AND (FeatureString LIKE '%" + filterCarFeatures + @"%')
+                              AND (ApplicationDescription LIKE '%" + filterApp + @"%')
+                              AND (FulfilledBy LIKE '%" + tbFulfilledBy + @"%')
+                              AND (OrderStartDate > @IssuedAfterDate OR OrderStartDate is Null)
+                              AND (OrderStartDate < @IssuedBeforeDate)
+                              AND (AccountType LIKE '%" + ddAccountType + @"%' OR AccountType is Null)
+                              AND (EngineKeyDisabled LIKE '%" + tbEngineKeyDisabled + @"%')
+                        )
+                  )
+
+                  AS ProductsWithRowNumber WHERE ResultRank > " + startIndex + " AND ResultRank <= (" + startIndex + " + " + pageSize + @")
+          )
+          ELSE
+          (
+                  SELECT *
+
+                  FROM [customerCodesDB]
+
+                  WHERE
+                  (
+                      (PermanentAutoCustomer NOT LIKE 1)
+                      AND (FeatureString LIKE '%" + filterCarFeatures + @"%')
+                      AND (KeyExpirationDate > @ExpiredAfterDate OR KeyExpirationDate is Null)
+                      AND (KeyExpirationDate < @ExpiredBeforeDate OR KeyExpirationDate is Null)
+                      AND (ApplicationDescription LIKE '%" + filterApp + @"%')
+                      AND (FulfilledBy LIKE '%" + tbFulfilledBy + @"%')
+                      AND (OrderStartDate > @IssuedAfterDate OR OrderStartDate is Null)
+                      AND (OrderStartDate < @IssuedBeforeDate)
+                      AND (AccountType LIKE '%" + ddAccountType + @"%' OR AccountType is Null)
+                      AND (EngineKeyDisabled LIKE '%" + tbEngineKeyDisabled + @"%')
+                  )
+                  OR
+                  (
+                      (PermanentAutoCustomer LIKE 1)
+                      AND (FeatureString LIKE '%" + filterCarFeatures + @"%')
+                      AND (ApplicationDescription LIKE '%" + filterApp + @"%')
+                      AND (FulfilledBy LIKE '%" + tbFulfilledBy + @"%')
+                      AND (OrderStartDate > @IssuedAfterDate OR OrderStartDate is Null)
+                      AND (OrderStartDate < @IssuedBeforeDate)
+                      AND (AccountType LIKE '%" + ddAccountType + @"%' OR AccountType is Null)
+                      AND (EngineKeyDisabled LIKE '%" + tbEngineKeyDisabled + @"%')
+                  )
+          )";
+
+          SqlConnection conn = new SqlConnection(entityBuilder.ProviderConnectionString);
+          SqlCommand cmd = new SqlCommand(query, conn);
+
+          conn.Open();
+
+          // create data adapter
+          SqlDataAdapter da = new SqlDataAdapter(cmd);
+          da.Fill(dataTable);
+          conn.Close();
+          da.Dispose();
+
+          return dataTable;
+      }
