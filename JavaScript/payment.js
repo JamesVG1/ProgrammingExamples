@@ -1,3 +1,6 @@
+//This is a dynamic scheduling calendar that is used to schedule bookings, but also adjust according to multiple user's availability settings.
+
+
 // global variables
 var numDay = 0; //global variable for counting week.
 
